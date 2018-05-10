@@ -5,6 +5,8 @@ from model import RNNModel
 import argparse
 import sys
 
+from tensorflow.python.training.summary_io import SummaryWriterCache
+
 training_filename = "data/train.tfrecord"
 test_filename = "data/test.tfrecord"
 # to do:
@@ -91,10 +93,7 @@ def chief_session_setup():
 
 
 def chief_train(sess, chief_dict, global_step, train_it, test_it, acc_ini):
-    chief_dict['summary_writer'] = tf.summary.FileWriter(
-                                       config['output_dir'],
-                                       graph=tf.get_default_graph()
-                                       )
+    chief_dict['summary_writer'] = SummaryWriterCache.get(config['output_dir'])
     print('chief_train')
     sess.run(train_it.initializer)
     sess.run([test_it.initializer, acc_ini])

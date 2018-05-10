@@ -126,8 +126,8 @@ def get_labels(fname):
 
 
 def preprocess(model):
-    writer_train = tf.python_io.TFRecordWriter('data/toy_train.tfrecord')
-    writer_test = tf.python_io.TFRecordWriter('data/toy_test.tfrecord')
+    writer_train = tf.python_io.TFRecordWriter('data/train.tfrecord')
+    writer_test = tf.python_io.TFRecordWriter('data/test.tfrecord')
     #writer_test = tf.python_io.TFRecordWriter(tf_record_fname_test)
     model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     fnames = glob.glob('data/*/*/*')
@@ -148,9 +148,10 @@ if __name__ == '__main__':
     try:
         model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     except:
-        raise ("Please download GoogleNews-vectors-negative300 from: \n"
-               "https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit \n"
-               "unzip it and place it in this directory.")
+        print("Please download GoogleNews-vectors-negative300 from: \n"
+              "https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit \n"
+              "unzip it and place it in this directory.")
+        raise
     if len(glob.glob('data/*/*/*')) == 0:
         get_data()
 

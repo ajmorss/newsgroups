@@ -1,9 +1,9 @@
 output_dir: outputs/res2
-epochs: 40
+epochs: 10
 batch_size: 64
 learning_rate: 0.01
 num_classes: 6
-rnn_nodes: 256
-rnn_layers: 2
+rnn_nodes: 100
+rnn_layers: 1
 keep_probability: 0.5
 cell: GRU

@@ -30,7 +30,7 @@ def single_step(sess, chief_dict, step):
 
 
 def build_chief_graph(training_filename, test_filename):
-    with tf.variable('training_input_pipeline'):
+    with tf.variable_scope('training_input_pipeline'):
         train_it, next_ele_train = get_input_iterator(training_filename,
                                                       config['batch_size'])
     with tf.variable_scope('test_input_pipeline'):
@@ -52,8 +52,7 @@ def build_chief_graph(training_filename, test_filename):
 def build_worker_graph(training_filename):
     with tf.variable('training_input_pipeline'):
         it, next_ele = get_input_iterator(training_filename,
-                                      config['epochs'],
-                                      config['batch_size'])
+                                          config['batch_size'])
     with tf.variable_scope("model"):
         model = RNNModel(next_ele_train, config)
     return model, next_ele, it
@@ -74,7 +73,6 @@ def chief_session_setup():
                                                       test_filename)
 
     loss = chief_dict['model'].loss_fn(chief_dict['next_ele_train'][2])
-    test_loss = chief_dict['model_test'].loss_fn(chief_dict['next_ele_test'][2])
 
     mini = build_optimizer(loss)
 

@@ -71,7 +71,7 @@ class RNNModel(object):
         with tf.variable_scope('loss_calc'):
             cross_entropy = tf.losses.softmax_cross_entropy(targets,
                                                             self.output)
-            loss = tf.reduce_mean(log_loss)
+            loss = tf.reduce_mean(cross_entropy)
         return loss
 
     def acc(self, targets):

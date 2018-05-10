@@ -19,7 +19,7 @@ def read_and_decode(serialized_example):
     return word_matrix, features['seq_length'], features['label_cat'], features['label_group']
 
 
-def get_input_iterator(filenames, epochs, batch_size):
+def get_input_iterator(filenames, batch_size):
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(read_and_decode)
     dataset = dataset.shuffle(5000)

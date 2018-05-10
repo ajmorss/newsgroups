@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.python.ops.rnn import dynamic_rnn
+from tensorflow.python.ops.rnn import bidirectional_dynamic_rnn
 from tensorflow.python.ops.rnn_cell_impl import (
     GRUCell, LSTMCell, DropoutWrapper, MultiRNNCell, BasicRNNCell
 )
@@ -33,15 +33,21 @@ class RNNModel(object):
         self.pred = tf.nn.softmax(self.output)
 
     def _create_rnn(self, inputs, seq_lengths, config):
-        cell = self._get_rnn_cell(config['cell'],
-                                  config['rnn_nodes'],
-                                  config['rnn_layers'],
-                                  config['keep_probability'])
-        _, state = dynamic_rnn(cell, inputs, seq_lengths,
-                               dtype=tf.float32)
+        cell_fw = self._get_rnn_cell(config['cell'],
+                                     config['rnn_nodes'],
+                                     config['rnn_layers'],
+                                     config['keep_probability'])
+        cell_bw = self._get_rnn_cell(config['cell'],
+                                     config['rnn_nodes'],
+                                     config['rnn_layers'],
+                                     config['keep_probability'])
+        _, state = bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs,
+                                             seq_lengths, dtype=tf.float32)
         if config['rnn_layers'] > 1:
-            state = state[-1]
-        state = tf.reshape(state, [-1, config['rnn_nodes']])
+            state = tf.concat((state[0][-1], state[1][-1]), 1)
+        else:
+            state = tf.concat((state[0],state[1]),1)
+        state = tf.reshape(state, [-1, 2 * config['rnn_nodes']])
         return state
 
     def _get_rnn_cell(self, cell, RNN_nodes, RNN_layers, keep_probability):

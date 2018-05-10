@@ -19,7 +19,7 @@ class RNNModel(object):
 
         with tf.variable_scope('rnn'):
             state = self._create_rnn(inputs, seq_lengths, config)
-        with tf.variable_scope('output_proj'): #, regularizer=tf.contrib.layers.l1_regularizer(l2_scale)):
+        with tf.variable_scope('output_proj'):
             w = tf.get_variable(
                     "w", [state.shape[1], config['num_classes']],
                     initializer=tf.truncated_normal_initializer(stddev=0.1)
@@ -30,7 +30,7 @@ class RNNModel(object):
                 )
             self.output = tf.matmul(state, w) + b
 
-        self.pred = tf.nn.softmax(self.output)
+            self.pred = tf.nn.softmax(self.output)
 
     def _create_rnn(self, inputs, seq_lengths, config):
         cell = self._get_rnn_cell(config['cell'],
@@ -68,33 +68,34 @@ class RNNModel(object):
             return layer_fn()
 
     def loss_fn(self, targets):
-        log_loss = tf.losses.softmax_cross_entropy(
-                            targets,
-                            self.output
-                        )
-        return tf.reduce_mean(log_loss)
-
-    # def reg_loss(self, targets):
-    #     regs = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-    #     regs = filter(lambda x: 'bias' not in x.name, regs)
-    #     return self.loss_fn(targets) + tf.reduce_sum(regs)
+        with tf.variable_scope('loss_calc'):
+            cross_entropy = tf.losses.softmax_cross_entropy(targets,
+                                                            self.output)
+            loss = tf.reduce_mean(log_loss)
+        return loss
 
     def acc(self, targets):
-        return tf.reduce_mean(
-            tf.cast(
-                tf.equal(tf.argmax(self.pred, 1),
-                         tf.argmax(targets, 1)),
-                tf.float32)
-            )
+        with tf.variable_scope('accuracy_calc'):
+            correct = tf.cast(tf.equal(tf.argmax(self.pred, 1),
+                                       tf.argmax(targets, 1)),
+                              tf.float32)
+            acc = tf.reduce_mean(correct)
+        return acc
 
     def stream_acc(self, targets):
-        acc, acc_op = tf.metrics.accuracy(labels=tf.argmax(targets, 1), predictions=tf.argmax(self.pred,1), name="acc_metric")
-        running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="acc_metric")
-        running_vars_initializer = tf.variables_initializer(var_list=running_vars)
+        with tf.variable_scope('streaming_acc'):
+            acc, acc_op = tf.metrics.accuracy(labels=tf.argmax(targets, 1),
+                                              predictions=tf.argmax(self.pred,
+                                                                    1),
+                                              name="acc_metric")
+            running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,
+                                             scope="acc_metric")
+            running_vars_initializer = \
+                tf.variables_initializer(var_list=running_vars)
         return acc_op, running_vars_initializer
         
 
     def _validate_config(self, config):
-        for x in self.required_params:
-            if x not in config:
-                raise "Invalid config for RNNModel: {} required".format(x)
+        for param in self.required_params:
+            if param not in config:
+                raise "Invalid config for RNNModel: {} required".format(param)

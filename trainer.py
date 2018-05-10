@@ -30,13 +30,12 @@ def single_step(sess, chief_dict, step):
 
 
 def build_chief_graph(training_filename, test_filename):
-    train_it, next_ele_train = get_input_iterator(training_filename,
-                                        config['epochs'],
-                                        config['batch_size'])
-    test_it, next_ele_test = get_input_iterator(test_filename,
-                                       10000 * config['epochs'],
-                                       config['batch_size'])
-
+    with tf.variable('training_input_pipeline'):
+        train_it, next_ele_train = get_input_iterator(training_filename,
+                                                      config['batch_size'])
+    with tf.variable_scope('test_input_pipeline'):
+        test_it, next_ele_test = get_input_iterator(test_filename,
+                                                    config['batch_size'])
     with tf.variable_scope("model"):
         model = RNNModel(next_ele_train, config)
     with tf.variable_scope("model", reuse=True):
@@ -51,9 +50,10 @@ def build_chief_graph(training_filename, test_filename):
 
 
 def build_worker_graph(training_filename):
-    it, next_ele = get_input_iterator(training_filename,
-                                  config['epochs'],
-                                  config['batch_size'])
+    with tf.variable('training_input_pipeline'):
+        it, next_ele = get_input_iterator(training_filename,
+                                      config['epochs'],
+                                      config['batch_size'])
     with tf.variable_scope("model"):
         model = RNNModel(next_ele_train, config)
     return model, next_ele, it
@@ -71,9 +71,8 @@ def chief_session_setup():
     global_step = tf.Variable(0, trainable=False, name='global_step')
     update_step = tf.assign(global_step, global_step + 1)
     chief_dict, train_it, test_it = build_chief_graph(training_filename,
-                                   test_filename)
+                                                      test_filename)
 
-    #reg_loss = chief_dict['model'].reg_loss(chief_dict['next_ele_train'][1])
     loss = chief_dict['model'].loss_fn(chief_dict['next_ele_train'][2])
     test_loss = chief_dict['model_test'].loss_fn(chief_dict['next_ele_test'][2])
 
@@ -94,7 +93,6 @@ def chief_session_setup():
 
 def chief_train(sess, chief_dict, global_step, train_it, test_it, acc_ini):
     chief_dict['summary_writer'] = SummaryWriterCache.get(config['output_dir'])
-    print('chief_train')
     sess.run(train_it.initializer)
     sess.run([test_it.initializer, acc_ini])
     for _ in xrange(config['epochs']):
@@ -120,22 +118,23 @@ def distributed_chief_run(server, cluster):
                    worker_device="/job:worker/task:%d" % args.task_index,
                    cluster=cluster)):
 
-        chief_dict, global_step, train_it, test_it, acc_ini = chief_session_setup()
+        chief_dict, global_step, train_it, test_it, acc_ini = \
+            chief_session_setup()
 
     # The MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when
     # done or an error occurs.
-    saver = tf.train.Saver(tf.global_variables(), max_to_keep=40, every_secs=3600)
+    saver = tf.train.Saver(tf.global_variables(), max_to_keep=40)
     hooks = [tf.train.CheckpointSaverHook(config['output_dir'],
                                           save_secs=1800,
                                           save_steps=None,
                                           saver=saver,
                                           checkpoint_basename='model.ckpt')]
     sess = tf.train.MonitoredTrainingSession(master=server.target,
-                                           is_chief=True,
-                                           save_summaries_steps=None,
-                                           save_summaries_secs=None,
-                                           hooks=hooks)
+                                             is_chief=True,
+                                             save_summaries_steps=None,
+                                             save_summaries_secs=None,
+                                             hooks=hooks)
     chief_train(sess, chief_dict, global_step, train_it, test_it, acc_ini)
     sess.close()
 
@@ -146,18 +145,18 @@ def local_chief_run():
     # The MonitoredTrainingSession takes care of session initialization,
     # restoring from a checkpoint, saving to a checkpoint, and closing when
     # done or an error occurs.
-    saver = tf.train.Saver(tf.global_variables(), max_to_keep=None)
+    saver = tf.train.Saver(tf.global_variables(), max_to_keep=40)
     hooks = [tf.train.CheckpointSaverHook(config['output_dir'],
                                           save_secs=1800,
                                           save_steps=None,
                                           saver=saver,
                                           checkpoint_basename='model.ckpt')]
     sess = tf.train.MonitoredTrainingSession(master="",
-                                           checkpoint_dir=config['output_dir'],
-                                           is_chief=True,
-                                           save_summaries_steps=None,
-                                           save_summaries_secs=None,
-                                           hooks=hooks)
+                                             checkpoint_dir=config['output_dir'],
+                                             is_chief=True,
+                                             save_summaries_steps=None,
+                                             save_summaries_secs=None,
+                                             hooks=hooks)
     chief_train(sess, chief_dict, global_step, train_it, test_it, acc_ini)
     sess.close()
 
@@ -177,10 +176,10 @@ def distributed_non_chief_run(server, cluster):
         train_op = [mini, update_step]
 
     sess = tf.train.MonitoredTrainingSession(master=server.target,
-                                           is_chief=is_chief,
-                                           checkpoint_dir=config['output_dir'],
-                                           save_summaries_steps=None,
-                                           save_summaries_secs=None)
+                                             is_chief=is_chief,
+                                             checkpoint_dir=config['output_dir'],
+                                             save_summaries_steps=None,
+                                             save_summaries_secs=None)
     for _ in xrange(config['epochs']):
         sess.run(train_it.initializer)
         while True:

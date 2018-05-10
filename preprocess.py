@@ -12,6 +12,20 @@ import codecs
 import tensorflow as tf
 
 
+def get_data():
+    import urllib
+    data_getter = urllib.URLopener()
+    data_getter.retrieve("http://qwone.com/~jason/20Newsgroups/20news-bydate.tar.gz", "20news-bydate.tar.gz")
+
+    import os
+    os.mkdir("data")
+
+    import tarfile
+    tar = tarfile.open("20news-bydate.tar.gz", "r:gz")
+    tar.extractall(path="data")
+    tar.close()
+
+
 def save_example(doc, labels, writer):
     word_matrix = np.reshape(doc, -1)
     word_matrix = tf.train.Feature(
@@ -111,13 +125,13 @@ def get_labels(fname):
     return cats[group], groups[group]
 
 
-def preprocess():
+def preprocess(model):
     writer_train = tf.python_io.TFRecordWriter('data/toy_train.tfrecord')
     writer_test = tf.python_io.TFRecordWriter('data/toy_test.tfrecord')
     #writer_test = tf.python_io.TFRecordWriter(tf_record_fname_test)
     model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     fnames = glob.glob('data/*/*/*')
-    for x in fnames[:16]:
+    for x in fnames:
         print(x)
         with codecs.open(x, "r",encoding='utf-8', errors='ignore') as fdata:
             doc = fdata.read()
@@ -130,5 +144,14 @@ def preprocess():
             save_example(doc, labels, writer_train)
 
 
-if __name__=='__main__':
-    preprocess()
+if __name__ == '__main__':
+    try:
+        model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
+    except:
+        raise ("Please download GoogleNews-vectors-negative300 from: \n"
+               "https://drive.google.com/file/d/0B7XkCwpI5KDYNlNUTTlSS21pQmM/edit \n"
+               "unzip it and place it in this directory.")
+    if len(glob.glob('data/*/*/*')) == 0:
+        get_data()
+
+    preprocess(model)

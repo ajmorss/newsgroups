@@ -7,8 +7,8 @@ import sys
 
 from tensorflow.python.training.summary_io import SummaryWriterCache
 
-training_filename = "data/train.tfrecord"
-test_filename = "data/test.tfrecord"
+training_filename = "../data/train.tfrecord"
+test_filename = "../data/test.tfrecord"
 # to do:
 # synchronize training?
 
@@ -50,11 +50,11 @@ def build_chief_graph(training_filename, test_filename):
 
 
 def build_worker_graph(training_filename):
-    with tf.variable('training_input_pipeline'):
+    with tf.variable_scope('training_input_pipeline'):
         it, next_ele = get_input_iterator(training_filename,
                                           config['batch_size'])
     with tf.variable_scope("model"):
-        model = RNNModel(next_ele_train, config)
+        model = RNNModel(next_ele, config)
     return model, next_ele, it
 
 
@@ -168,18 +168,18 @@ def distributed_non_chief_run(server, cluster):
         update_step = tf.assign(global_step, global_step + 1)
         model, next_ele, it = build_worker_graph(training_filename)
 
-        loss = model.loss(next_ele[2])
+        loss = model.loss_fn(next_ele[2])
 
         mini = build_optimizer(loss)
         train_op = [mini, update_step]
 
     sess = tf.train.MonitoredTrainingSession(master=server.target,
-                                             is_chief=is_chief,
+                                             is_chief=False,
                                              checkpoint_dir=config['output_dir'],
                                              save_summaries_steps=None,
                                              save_summaries_secs=None)
     for _ in xrange(config['epochs']):
-        sess.run(train_it.initializer)
+        sess.run(it.initializer)
         while True:
             try:
                 sess.run(train_op)

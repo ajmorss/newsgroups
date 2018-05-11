@@ -30,12 +30,20 @@ def single_step(sess, chief_dict, step):
 
 
 def build_chief_graph(training_filename, test_filename):
-    with tf.variable_scope('training_input_pipeline'):
-        train_it, next_ele_train = get_input_iterator(training_filename,
-                                                      config['batch_size'])
+    if args.distributed:
+        with tf.variable_scope('training_input_pipeline'):
+            train_it, next_ele_train = get_input_iterator(training_filename,
+                                                          config['batch_size'],
+                                                          len(args.worker_hosts.split(",")),
+                                                          args.task_index)
+    else:
+        with tf.variable_scope('training_input_pipeline'):
+            train_it, next_ele_train = get_input_iterator(training_filename,
+                                                          config['batch_size'],
+                                                          1, 0)
     with tf.variable_scope('test_input_pipeline'):
         test_it, next_ele_test = get_input_iterator(test_filename,
-                                                    config['batch_size'])
+                                                    config['batch_size'], 1, 0)
     with tf.variable_scope("model"):
         model = RNNModel(next_ele_train, config)
     with tf.variable_scope("model", reuse=True):
@@ -52,7 +60,9 @@ def build_chief_graph(training_filename, test_filename):
 def build_worker_graph(training_filename):
     with tf.variable_scope('training_input_pipeline'):
         it, next_ele = get_input_iterator(training_filename,
-                                          config['batch_size'])
+                                          config['batch_size'],
+                                          len(args.worker_hosts.split(",")),
+                                          args.task_index)
     with tf.variable_scope("model"):
         model = RNNModel(next_ele, config)
     return model, next_ele, it

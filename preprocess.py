@@ -11,6 +11,8 @@ import codecs
 
 import tensorflow as tf
 
+from random import shuffle
+
 
 def get_data():
     import urllib
@@ -131,6 +133,7 @@ def preprocess(model):
     #writer_test = tf.python_io.TFRecordWriter(tf_record_fname_test)
     model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     fnames = glob.glob('data/*/*/*')
+    shuffle(fnames)
     for x in fnames:
         print(x)
         with codecs.open(x, "r",encoding='utf-8', errors='ignore') as fdata:

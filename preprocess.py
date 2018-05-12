@@ -8,9 +8,13 @@ import tensorflow as tf
 import gensim
 import glob
 import codecs
+import argparse
 
 import tensorflow as tf
 
+from random import shuffle
+
+allowed_formats = ['tf', 'cntk']
 
 def get_data():
     import urllib
@@ -26,7 +30,7 @@ def get_data():
     tar.close()
 
 
-def save_example(doc, labels, writer):
+def save_example_tf(doc, labels, writer):
     word_matrix = np.reshape(doc, -1)
     word_matrix = tf.train.Feature(
         float_list=tf.train.FloatList(value=word_matrix)
@@ -60,6 +64,33 @@ def save_example(doc, labels, writer):
             )
         )
     writer.write(example.SerializeToString())
+
+
+def save_example_cntk(doc, labels, fname, sequence_id):
+    word_matrix = np.reshape(doc, -1).tolist()
+    word_matrix = ' '.join([str(x) for x in word_matrix])
+
+    seq_length = int(doc.shape[0])
+    label_cat = np.zeros(6).astype(int)
+    label_cat[labels[0]] = 1
+    label_cat = label_cat.tolist()
+    label_cat = ' '.join([str(x) for x in label_cat])
+
+    label_group = np.zeros(20).astype(int)
+    label_group[labels[1]] = 1
+    label_group = label_group.tolist()
+    label_group = ' '.join([str(x) for x in label_group])
+    with open(fname, 'a') as f:
+        for i in xrange(seq_length):
+            word = doc[i, :].tolist()
+            word = ' '.join([str(x) for x in word])
+            if i == 0:
+                example_out = ''.join([str(sequence_id), ' |label_cat '] + [label_cat] + 
+                                      [' |label_group '] + [label_group] +
+                                      [' |word '] + [word] + ['\n'])
+            else:
+                example_out = ''.join([str(sequence_id), ' |word '] + [word] + ['\n'])
+            f.write(example_out)
 
 
 def clean_doc(doc):
@@ -126,25 +157,48 @@ def get_labels(fname):
 
 
 def preprocess(model):
-    writer_train = tf.python_io.TFRecordWriter('data/train.tfrecord')
-    writer_test = tf.python_io.TFRecordWriter('data/test.tfrecord')
+    if args.format == 'tf':
+	    writer_train = tf.python_io.TFRecordWriter('data/train.tfrecord')
+	    writer_test = tf.python_io.TFRecordWriter('data/test.tfrecord')
     #writer_test = tf.python_io.TFRecordWriter(tf_record_fname_test)
     model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     fnames = glob.glob('data/*/*/*')
+    shuffle(fnames)
+    sequence_id = 0
     for x in fnames:
+
         print(x)
         with codecs.open(x, "r",encoding='utf-8', errors='ignore') as fdata:
             doc = fdata.read()
         doc = clean_doc(doc)
         doc = vectorize_doc(doc, model)
         labels = get_labels(x)
-        if 'test' in x:
-            save_example(doc, labels, writer_test)
-        else:
-            save_example(doc, labels, writer_train)
+        if args.format == 'tf':
+            if 'test' in x:
+                save_example_tf(doc, labels, writer_test)
+            else:
+                save_example_tf(doc, labels, writer_train)
+        elif args.format == 'cntk':
+            if 'test' in x:
+                save_example_cntk(doc, labels, 'data/test.ctf', sequence_id)
+            else:
+                save_example_cntk(doc, labels, 'data/train.ctf', sequence_id)
+        sequence_id = sequence_id + 1
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.register("type", "bool", lambda v: v.lower() == "true")
+    # Flags for defining the tf.train.ClusterSpec
+    parser.add_argument(
+        "--format",
+        type=str,
+        default='tf',
+        help="Data format"
+    )
+    args, unparsed = parser.parse_known_args()
+    if args.format not in allowed_formats:
+        raise ValueError
     try:
         model = gensim.models.KeyedVectors.load_word2vec_format('GoogleNews-vectors-negative300.bin', binary=True)
     except:

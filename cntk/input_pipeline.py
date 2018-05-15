@@ -11,6 +11,7 @@ from cntk.layers import Sequential, Embedding, Recurrence, LSTM, Dense
 # Define the data dimensions
 num_label_classes = 6
 import cntk
+import numpy as np
 
 # Read a CTF formatted text (as mentioned above) using the CTF deserializer from a file
 def create_reader(path, is_training, input_dim, num_label_classes):
@@ -21,27 +22,17 @@ def create_reader(path, is_training, input_dim, num_label_classes):
     deserializer = CTFDeserializer(path, StreamDefs(labels = labelStream, features = featureStream))
 
     return MinibatchSource(deserializer,
-       randomize = is_training, max_sweeps = cntk.io.INFINITELY_REPEAT if is_training else 1)
+       randomize = is_training, max_sweeps = 1)
 
 
-def LSTM_sequence_classifier_net(input, num_output_classes, embedding_dim,
-                                LSTM_dim, cell_dim):
-    lstm_classifier = Sequential([Embedding(embedding_dim),
-                                  Recurrence(LSTM(LSTM_dim, cell_dim)),
-                                  sequence.last,
-                                  Dense(num_output_classes)])
-    return lstm_classifier(input)
-
-def create_model_mn_factory():
-    with cntk.layers.default_options(initial_state=0.1):
-        m = Sequential([
-            #Recurrence(LSTM(50), go_backwards=False),
-            Recurrence(LSTM(100), go_backwards=False),
-            cntk.layers.Dropout(0.5, seed=1),
-            Dense(num_label_classes, name='output')
-        ])
-        return cntk.sequence.last(m)
-
+def create_model(x):
+    """Create the model for time series prediction"""
+    with cntk.layers.default_options(initial_state = 0.1):
+        m = Recurrence(LSTM(100))(x)
+        m = cntk.sequence.last(m)
+        m = cntk.layers.Dropout(0.5)(m)
+        m = Dense(1)(m)
+        return m
 
 
 ## Define a small model function
@@ -49,28 +40,53 @@ def create_model_mn_factory():
 x = sequence.input_variable(shape=300, is_sparse=False)
 y = input_variable(num_label_classes)
 
-classifier_output = create_model_mn_factory()
-classifier_output = classifier_output(x)
+classifier_output = create_model(x)
 
 ce = cross_entropy_with_softmax(classifier_output, y)
 pe = classification_error(classifier_output, y)
 
-reader = create_reader('../data/train.ctf', True, 300, num_label_classes)
-
-input_map = {
-        x: reader.streams.features,
-        y:    reader.streams.labels
-}
-
-lr_per_sample = cntk.learners.learning_parameter_schedule([0.01, 0.01, 0.01, 0.05, 0.05, .01, 0.01, 0.005, 0.005, 0.001], minibatch_size=8000, epoch_size=150)
 # Instantiate the trainer object to drive the model training
 progress_printer = ProgressPrinter(0)
 trainer = Trainer(classifier_output, (ce, pe),
-                  cntk.learners.adam(classifier_output.parameters, 0.01, 0.9),
+                  cntk.learners.adam(classifier_output.parameters, 0.05, 0.9),
                   progress_printer)
 
-for i in range(15000):
-    mb = reader.next_minibatch(8000, input_map=input_map)
-    trainer.train_minibatch(mb)
+training_loss = []
+test_acc = []
+step = 0
+for i in range(10):
+    reader_train = create_reader('../data/train.ctf', True, 300, num_label_classes)
+    input_map = {
+            x: reader_train.streams.features,
+            y:    reader_train.streams.labels
+    }
 
+    while True:
+        mb = reader_train.next_minibatch(8000, input_map=input_map)
+        if len(mb) == 0:
+            break
+        trainer.train_minibatch(mb)
+        training_loss.append([step, trainer.previous_minibatch_loss_average()])
+        step = step + 1
+    reader_test = create_reader('../data/test.ctf', False, 300, num_label_classes)
+    input_map = {
+            x: reader_test.streams.features,
+            y:    reader_test.streams.labels
+    }
+    minibatch_acc = []
+    while True:
+        mb = reader_test.next_minibatch(8000, input_map=input_map)
+        if len(mb) == 0:
+            break
+        minibatch_acc.append(trainer.test_minibatch(mb))
+    test_acc.append([i, np.mean(minibatch_acc)])
+    print("Done epoch {}".format(str(i)))
+
+import matplotlib.pylab as plt
+
+plt.plot(np.array(training_loss)[:,0], np.array(training_loss)[:.1])
+plt.show()
+
+plt.plot(np.array(test_acc)[:,0], np.array(test_acc)[:.1])
+plt.show()
 

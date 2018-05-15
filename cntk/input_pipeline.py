@@ -31,7 +31,7 @@ def create_model(x):
         m = Recurrence(LSTM(100))(x)
         m = cntk.sequence.last(m)
         m = cntk.layers.Dropout(0.5)(m)
-        m = Dense(1)(m)
+        m = Dense(num_label_classes)(m)
         return m
 
 

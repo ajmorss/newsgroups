@@ -83,9 +83,9 @@ for i in range(10):
 
 import matplotlib.pylab as plt
 
-plt.plot(np.array(training_loss)[:,0], np.array(training_loss)[:.1])
+plt.plot(np.array(training_loss)[:,0], np.array(training_loss)[:,1])
 plt.show()
 
-plt.plot(np.array(test_acc)[:,0], np.array(test_acc)[:.1])
+plt.plot(np.array(test_acc)[:,0], np.array(test_acc)[:,1])
 plt.show()
 

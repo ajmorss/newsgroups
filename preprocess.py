@@ -85,11 +85,11 @@ def save_example_cntk(doc, labels, fname, sequence_id):
             word = doc[i, :].tolist()
             word = ' '.join([str(x) for x in word])
             if i == 0:
-                example_out = ''.join([str(sequence_id), ' |label_cat '] + [label_cat] + 
+                example_out = ''.join([str(sequence_id), '|word '] + [word] + 
                                       [' |label_group '] + [label_group] +
-                                      [' |word '] + [word] + ['\n'])
+                                      [' |label_cat '] + [label_cat] + ['\n'])
             else:
-                example_out = ''.join([str(sequence_id), ' |word '] + [word] + ['\n'])
+                example_out = ''.join([str(sequence_id), '|word '] + [word] + ['\n'])
             f.write(example_out)
 
 

@@ -26,7 +26,6 @@ def create_reader(path, is_training, input_dim, num_label_classes):
 
 
 def create_model(x):
-    """Create the model for time series prediction"""
     with cntk.layers.default_options(initial_state = 0.1):
         m = Recurrence(LSTM(100))(x)
         m = cntk.sequence.last(m)
@@ -66,7 +65,7 @@ for i in range(10):
         if len(mb) == 0:
             break
         trainer.train_minibatch(mb)
-        training_loss.append([step, trainer.previous_minibatch_loss_average()])
+        training_loss.append([step, trainer.previous_minibatch_loss_average])
         step = step + 1
     reader_test = create_reader('../data/test.ctf', False, 300, num_label_classes)
     input_map = {
